@@ -5,7 +5,7 @@ use crate::html::tokens::Token;
 pub struct Lexer<'a> {
     pos: usize,
     input: Peekable<Chars<'a>>,
-    state: Box<dyn LexerState<'a>>,
+    state: &'a Box<dyn LexerState<'a>>,
 }
 
 impl<'a> Lexer<'a> {
@@ -13,7 +13,7 @@ impl<'a> Lexer<'a> {
         Lexer {
             pos: 0,
             input: input.chars().peekable(),
-            state: Box::new(DataState {}),
+            state: &Box::new(DataState {}),
         }
     }
 
