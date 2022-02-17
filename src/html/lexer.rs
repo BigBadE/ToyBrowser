@@ -1,18 +1,19 @@
+use std::iter::Peekable;
 use std::str::Chars;
 use crate::html::tokens::Token;
 
 pub struct Lexer<'a> {
     pos: usize,
-    input: Chars<'a>,
-    state: Box<dyn LexerState>,
+    input: Peekable<Chars<'a>>,
+    state: Box<dyn LexerState<'a>>,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(input: String) -> Lexer<'a> {
         Lexer {
             pos: 0,
-            input: input.chars(),
-            state: Box::new(DataState { current_data: Vec::new() }),
+            input: input.chars().peekable(),
+            state: Box::new(DataState {}),
         }
     }
 
@@ -21,39 +22,54 @@ impl<'a> Lexer<'a> {
     }
 }
 
-trait LexerState {
-    fn next_token(&mut self, lexer: &mut Lexer) -> Token;
+trait LexerState<'a> {
+    fn next_token(&mut self, lexer: &'a mut Lexer) -> Token;
 }
 
-pub struct DataState {
-    current_data: Vec<u8>,
-}
+pub struct DataState {}
 
-impl LexerState for DataState {
-    fn next_token(&mut self, lexer: &mut Lexer) -> Token {
-        match lexer.input[lexer.pos] {
-            '&' => {
-                lexer.state = Box::new(CharacterReferenceState { return_state: lexer.state });
-                lexer.state.next_token(lexer)
+impl<'a> LexerState<'a> for DataState {
+    fn next_token(&mut self, lexer: &'a mut Lexer) -> Token {
+        match lexer.input.next() {
+            Some(char) => {
+                match char {
+                    '&' => {
+                        lexer.state = Box::new(CharacterReferenceState::new(&lexer.state));
+                        lexer.state.next_token(lexer)
+                    }
+                    '<' => {
+                        lexer.state = Box::new(TagOpenState {});
+                        lexer.state.next_token(lexer)
+                    }
+                    '\u{0000}' => {
+                        Token::Character('\u{0000}')
+                    }
+                    _ => {
+                        Token::Character(char)
+                    }
+                }
             }
+            _ => Token::EndOfFile()
         }
     }
 }
 
-pub struct CharacterReferenceState {
-    return_state: Box<dyn LexerState>,
+pub struct CharacterReferenceState<'a> {
+    return_state: &'a Box<dyn LexerState<'a>>,
 }
 
-impl LexerState for CharacterReferenceState {
-    fn next_token(&mut self, lexer: &mut Lexer) -> Token {
+impl<'a> LexerState<'a> for CharacterReferenceState<'a> {
+    fn next_token(&mut self, lexer: &mut Lexer) -> Token {}
+}
 
+impl<'a> CharacterReferenceState<'a> {
+    fn new(return_state: &'a Box<dyn LexerState<'a>>) -> CharacterReferenceState<'a> {
+        CharacterReferenceState { return_state }
     }
 }
 
 pub struct TagOpenState {}
 
-impl LexerState for TagOpenState {
-    fn next_token(&mut self, lexer: &mut Lexer) -> Token {
-
-    }
+impl<'a> LexerState<'a> for TagOpenState {
+    fn next_token(&mut self, lexer: &mut Lexer) -> Token {}
 }

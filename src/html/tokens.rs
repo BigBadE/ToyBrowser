@@ -1,5 +1,4 @@
 pub enum Token {
-    EndOfFile(EndOfFile)
+    Character(char),
+    EndOfFile()
 }
-
-pub struct EndOfFile {}
