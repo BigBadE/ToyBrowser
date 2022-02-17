@@ -19,7 +19,8 @@ pub struct DocumentType {
     name: String,
     notations: Vec<Attribute>,
     public_id: String,
-    system_id: String
+    system_id: String,
+    quirks: bool
 }
 
 pub struct Document {

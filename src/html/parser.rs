@@ -1,21 +1,22 @@
 use crate::html::node::{document, Document, Node};
+use crate::html::lexer::Lexer;
 
-pub struct Parser {
-    input: String,
-    lexer: Lexer
+pub struct Parser<'a> {
+    stack: Vec<Node>,
+    lexer: Lexer<'a>
 }
 
-pub struct Lexer {
-    pos: usize,
-    input: String
-}
+impl<'a> Parser<'a> {
+    pub fn new(input: String) -> Parser<'a> {
+        Parser { stack: Vec::new(), lexer: Lexer::new(input) }
+    }
 
-impl Parser {
-    fn parse(text: String) -> Node {
-        let doc = document(Vec::new());
-        for character in text.chars() {
+    pub fn parse(&mut self, text: String) -> Node {
+        self.stack.push(document(Vec::new()));
 
+        match self.stack.pop() {
+            None => { document(Vec::new()) }
+            Some(value) => { value }
         }
-        doc
     }
 }
