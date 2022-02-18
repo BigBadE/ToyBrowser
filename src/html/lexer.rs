@@ -4,7 +4,8 @@ use crate::html::tokens::Token;
 
 pub struct Lexer<'a> {
     pos: usize,
-    input: Peekable<Chars<'a>>,
+    reconsume: Option<char>,
+    input: Chars<'a>,
     state: Box<dyn LexerState>,
 }
 
@@ -12,8 +13,21 @@ impl<'a> Lexer<'a> {
     pub fn new(input: String) -> Lexer<'a> {
         Lexer {
             pos: 0,
-            input: input.chars().peekable(),
+            reconsume: Option::None,
+            input: input.chars(),
             state: Box::new(DataState {}),
+        }
+    }
+
+    pub fn next_character(mut self) -> Option<char> {
+        match self.reconsume {
+            Some(char) => {
+                self.reconsume = Option::None;
+                Option::Some(char)
+            }
+            None => {
+                self.input.next()
+            }
         }
     }
 
@@ -64,7 +78,16 @@ pub struct CharacterReferenceState {
 
 impl LexerState for CharacterReferenceState {
     fn next_token(&mut self, mut lexer: Lexer) -> Token {
+        match lexer.input.next() {
+            Some(char) => {
+                match char {
+                    '&' => {}
+                }
+            }
+            None => {
 
+            }
+        }
     }
 }
 
