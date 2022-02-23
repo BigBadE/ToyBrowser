@@ -8,7 +8,7 @@ pub enum Token {
     StartComment(),
     Comment(Vec<char>),
     StartAttribute(),
-    Attribute((Vec<char>, Vec<char>)),
+    Attribute { name: Vec<char>, value: Vec<char> },
     Tag(TagData),
     EndOfFile()
 }
