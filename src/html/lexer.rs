@@ -262,7 +262,7 @@ impl LexerState for TagNameState {
 }
 
 pub struct BeforeAttributeNameState {
-    tag: TagData
+    tag: TagData,
 }
 
 impl LexerState for BeforeAttributeNameState {
@@ -390,7 +390,7 @@ impl LexerState for AfterAttributeNameState {
 }
 
 pub struct SelfClosingStartTagState {
-    tag: TagData
+    tag: TagData,
 }
 
 impl LexerState for SelfClosingStartTagState {
@@ -421,7 +421,7 @@ impl LexerState for SelfClosingStartTagState {
 
 pub struct BeforeAttributeValueState {
     tag: TagData,
-    attribute: (Vec<char>, Vec<char>)
+    attribute: (Vec<char>, Vec<char>),
 }
 
 impl LexerState for BeforeAttributeValueState {
@@ -430,15 +430,23 @@ impl LexerState for BeforeAttributeValueState {
             match lexer.next_character() {
                 Some(char) => {
                     match char {
-                        '\u{0009}'|'\u{000A}'|'\u{000C}'|' ' => {
+                        '\u{0009}' | '\u{000A}' | '\u{000C}' | ' ' => {
                             //Ignored
                         }
                         '\"' => {
-                            lexer.state = Box::new(AttributeValueDoubleQuotedState { tag: self.tag, attribute: self.attribute });
+                            lexer.state = Box::new(AttributeValueDoubleQuotedState {
+                                tag: self.tag,
+                                attribute: self.attribute,
+                                ending: false,
+                            });
                             return lexer.next_token();
                         }
                         '\'' => {
-                            lexer.state = Box::new(AttributeValueSingleQuotedState { tag: self.tag, attribute: self.attribute });
+                            lexer.state = Box::new(AttributeValueSingleQuotedState {
+                                tag: self.tag,
+                                attribute: self.attribute,
+                                ending: false,
+                            });
                             return lexer.next_token();
                         }
                         '>' => {
@@ -449,13 +457,21 @@ impl LexerState for BeforeAttributeValueState {
                         }
                         _ => {
                             lexer.reconsume = Option::Some(char);
-                            lexer.state = Box::new(AttributeValueUnquotedState { tag: self.tag, attribute: self.attribute });
+                            lexer.state = Box::new(AttributeValueUnquotedState {
+                                tag: self.tag,
+                                attribute: self.attribute,
+                                ending: false,
+                            });
                             return lexer.next_token();
                         }
                     }
                 }
                 None => {
-                    lexer.state = Box::new(AttributeValueUnquotedState { tag: self.tag, attribute: self.attribute });
+                    lexer.state = Box::new(AttributeValueUnquotedState {
+                        tag: self.tag,
+                        attribute: self.attribute,
+                        ending: false,
+                    });
                     return lexer.next_token();
                 }
             }
@@ -465,7 +481,8 @@ impl LexerState for BeforeAttributeValueState {
 
 pub struct AttributeValueDoubleQuotedState {
     tag: TagData,
-    attribute: (Vec<char>, Vec<char>)
+    attribute: (Vec<char>, Vec<char>),
+    ending: bool,
 }
 
 impl LexerState for AttributeValueDoubleQuotedState {
@@ -475,12 +492,16 @@ impl LexerState for AttributeValueDoubleQuotedState {
                 Some(char) => {
                     match char {
                         '\"' => {
-                            lexer.state = Box::new(AfterAttributeValueQuotedState { tag: self.tag, attribute: self.attribute});
-                            return lexer.next_token()
+                            lexer.state = Box::new(AfterAttributeValueQuotedState {
+                                tag: self.tag,
+                                attribute: self.attribute,
+                                ending: false,
+                            });
+                            return lexer.next_token();
                         }
                         '&' => {
                             lexer.state = Box::new(CharacterReferenceState { return_state: lexer.state });
-                            return lexer.next_token()
+                            return lexer.next_token();
                         }
                         '\u{0000}' => {
                             (lexer.error_handler)("unexpected-null-character");
@@ -492,8 +513,13 @@ impl LexerState for AttributeValueDoubleQuotedState {
                     }
                 }
                 None => {
-                    (lexer.error_handler)("eof-in-tag");
-                    return Token::EndOfFile()
+                    return if !self.ending {
+                        self.ending = true;
+                        Token::Tag(self.tag)
+                    } else {
+                        (lexer.error_handler)("eof-in-tag");
+                        Token::EndOfFile()
+                    };
                 }
             }
         }
@@ -502,7 +528,8 @@ impl LexerState for AttributeValueDoubleQuotedState {
 
 pub struct AttributeValueSingleQuotedState {
     tag: TagData,
-    attribute: (Vec<char>, Vec<char>)
+    attribute: (Vec<char>, Vec<char>),
+    ending: bool,
 }
 
 impl LexerState for AttributeValueSingleQuotedState {
@@ -512,12 +539,16 @@ impl LexerState for AttributeValueSingleQuotedState {
                 Some(char) => {
                     match char {
                         '\'' => {
-                            lexer.state = Box::new(AfterAttributeValueQuotedState { tag: self.tag, attribute: self.attribute});
-                            return lexer.next_token()
+                            lexer.state = Box::new(AfterAttributeValueQuotedState {
+                                tag: self.tag,
+                                attribute: self.attribute,
+                                ending: false,
+                            });
+                            return lexer.next_token();
                         }
                         '&' => {
                             lexer.state = Box::new(CharacterReferenceState { return_state: lexer.state });
-                            return lexer.next_token()
+                            return lexer.next_token();
                         }
                         '\u{0000}' => {
                             (lexer.error_handler)("unexpected-null-character");
@@ -529,8 +560,13 @@ impl LexerState for AttributeValueSingleQuotedState {
                     }
                 }
                 None => {
-                    (lexer.error_handler)("eof-in-tag");
-                    return Token::EndOfFile()
+                    return if !self.ending {
+                        self.ending = true;
+                        Token::Tag(self.tag)
+                    } else {
+                        (lexer.error_handler)("eof-in-tag");
+                        Token::EndOfFile()
+                    };
                 }
             }
         }
@@ -539,7 +575,8 @@ impl LexerState for AttributeValueSingleQuotedState {
 
 pub struct AttributeValueUnquotedState {
     tag: TagData,
-    attribute: (Vec<char>, Vec<char>)
+    attribute: (Vec<char>, Vec<char>),
+    ending: bool,
 }
 
 impl LexerState for AttributeValueUnquotedState {
@@ -548,24 +585,24 @@ impl LexerState for AttributeValueUnquotedState {
             match lexer.next_character() {
                 Some(char) => {
                     match char {
-                        '\u{0009}'|'\u{000A}'|'\u{000C}'|' ' => {
+                        '\u{0009}' | '\u{000A}' | '\u{000C}' | ' ' => {
                             lexer.state = Box::new(BeforeAttributeNameState { tag: self.tag });
-                            return lexer.next_token()
+                            return lexer.next_token();
                         }
                         '&' => {
                             lexer.state = Box::new(CharacterReferenceState { return_state: lexer.state });
-                            return lexer.next_token()
+                            return lexer.next_token();
                         }
                         '>' => {
                             lexer.state = Box::new(DataState {});
                             self.tag.attributes.insert(self.attribute.0, self.attribute.1);
-                            return Token::Tag(self.tag)
+                            return Token::Tag(self.tag);
                         }
                         '\u{0000}' => {
                             (lexer.error_handler)("unexpected-null-character");
                             self.attribute.1.push('\u{FFFD}');
                         }
-                        '\"'|'\''|'<'|'='|'`' => {
+                        '\"' | '\'' | '<' | '=' | '`' => {
                             (lexer.error_handler)("unexpected-character-in-unquoted-attribute-value");
                             self.attribute.1.push(char);
                         }
@@ -575,8 +612,56 @@ impl LexerState for AttributeValueUnquotedState {
                     }
                 }
                 None => {
+                    return if !self.ending {
+                        self.ending = true;
+                        Token::Tag(self.tag)
+                    } else {
+                        (lexer.error_handler)("eof-in-tag");
+                        Token::EndOfFile()
+                    };
+                }
+            }
+        }
+    }
+}
+
+pub struct AfterAttributeValueQuotedState {
+    tag: TagData,
+    attribute: (Vec<char>, Vec<char>),
+    ending: bool,
+}
+
+impl LexerState for AfterAttributeValueQuotedState {
+    fn next_token(mut self, mut lexer: Lexer) -> Token {
+        loop {
+            match lexer.next_character() {
+                Some(char) => {
+                    match char {
+                        '\u{0009}'|'\u{000A}'|'\u{000C}'|' ' => {
+                            lexer.state = Box::new(BeforeAttributeNameState { tag: self.tag });
+                            return lexer.next_token();
+                        }
+                        '/' => {
+                            lexer.state = Box::new(SelfClosingStartTagState { tag: self.tag });
+                            return lexer.next_token();
+                        }
+                        '\u{0000}' => {
+                            self.attribute.1.push('\u{FFFD}');
+                        }
+                        _ => {
+                            return if !self.ending {
+                                self.ending = true;
+                                Token::Tag(self.tag)
+                            } else {
+                                (lexer.error_handler)("missing-whitespace-between-attributes");
+                                Token::EndOfFile()
+                            }
+                        }
+                    }
+                }
+                None => {
                     (lexer.error_handler)("eof-in-tag");
-                    return Token::EndOfFile()
+                    return Token::EndOfFile();
                 }
             }
         }
